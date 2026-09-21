@@ -1,0 +1,12 @@
+bd/
+db/
+logs/
+logs-api/
+creds/
+envio/
+.git/
+.venv/
+__pycache__/
+*.pyc
+.env
+tests/

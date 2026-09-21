@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Segredos e configuração local
+.env
+
+# A fonte: 331 MB de .sql e o FDB 2.5 de 498 MB recebidos de fora.
+# Não versionados — são entrada, chegam por outro canal, e mudam a cada
+# competência. A proveniência deles fica DENTRO da base, no sha256 por
+# arquivo gravado em `metadados`.
+db/firebird-querys/
+db/*.FDB
+db/*.fdb
+
+# Bases e artefatos de banco
+bd/
+*.fdb
+*.fbk
+blue_green_state.json
+checkpoint.json
+
+# Partes da publicação
+envio/
+
+# Credenciais dos consumidores da API e o log analítico.
+# `creds/` guarda hash de segredo e o padrão de consulta de cada cliente;
+# `logs-api/` registra o que cada um consulta — que é registrar a atividade
+# comercial dele. Nenhum dos dois vai para o repositório.
+creds/
+logs-api/
+logs/
+
+# Hugo
+site/public/
+site/resources/
+site/.hugo_build.lock
+
+.claude/

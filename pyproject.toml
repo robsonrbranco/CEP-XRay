@@ -1,0 +1,26 @@
+[project]
+name = "cep-xray"
+version = "0.1.0"
+description = "ETL e consulta da base de CEP em Firebird 3.0, com API compatível com a Busca CEP dos Correios"
+requires-python = ">=3.13"
+license = { file = "LICENSE" }
+
+dependencies = [
+    "firebird-driver>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.0.0",
+    # polars faz a conversão de tipo em coluna, sobre o DataFrame que o
+    # tokenizador de `etl/leitura.py` monta. Não é usado para LER a fonte —
+    # a fonte é SQL, não CSV.
+    "polars>=1.42.1",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+]
+
+[dependency-groups]
+# httpx entra só por causa do TestClient do Starlette.
+dev = ["pytest>=8.0.0", "httpx>=0.27.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

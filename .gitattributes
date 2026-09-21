@@ -1,0 +1,4 @@
+# Os scripts de deploy são scp-ados de uma cópia de trabalho Windows para um
+# host Linux e executados lá. Com CRLF, o shell falha com `$'\r': command not
+# found` — e falha com o serviço já parado, no pior momento possível.
+*.sh text eol=lf
