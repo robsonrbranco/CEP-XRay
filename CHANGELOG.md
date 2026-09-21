@@ -1,5 +1,37 @@
 # 📝 Changelog — CEP-XRay
 
+## [0.2.2] - 2026-09-21
+
+### 🐛 Correção
+
+- **Hugo fixado em 0.166.0, com checksum.** O `Dockerfile` descobria a versão
+  em tempo de build com uma chamada **não autenticada** a `api.github.com`.
+  Isso reprovou o deploy desta data: a API respondeu sem `tag_name` (limite de
+  requisições por IP do runner), o `grep -oP` saiu 1 e a cadeia `&&` parou —
+  40 minutos depois de a mesma imagem ter sido construída com sucesso.
+
+  A falha intermitente era o sintoma menor. O maior é que **dois builds do
+  mesmo commit podiam produzir imagens com Hugos diferentes**: um commit que só
+  mexesse em Python levaria junto uma versão nova do compilador do site, sem
+  que nada no diff dissesse isso. Reprodutibilidade não é preciosismo aqui —
+  é o que permite responder "o que mudou entre a imagem que funcionava e esta".
+
+  O `sha256sum -c` entra junto e roda **antes** do `tar`: ele transforma
+  download truncado ou artefato trocado num erro nomeado, em vez de um `tar`
+  estourando com mensagem sobre formato. O checksum foi conferido contra o
+  `checksums.txt` oficial e contra o artefato baixado.
+
+  Quatro testes de texto trancam a propriedade, inclusive a ordem
+  checksum-antes-de-desempacotar — conferir depois de extrair não protege de
+  nada. Não constroem a imagem (não há Docker na suíte); impedem que a decisão
+  se perca em silêncio.
+
+### 📊 Resultado
+
+**217 testes** (+4).
+
+---
+
 ## [0.2.1] - 2026-09-21
 
 ### 🐛 Correção

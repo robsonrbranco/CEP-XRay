@@ -34,14 +34,39 @@ RUN apt-get update -qq \
 # vírgula no texto reinicia o pod que serve a API. São segundos.
 FROM debian:bookworm-slim AS site
 
+# Hugo FIXO, e não "o último".
+#
+# A versão era descoberta em tempo de build com uma chamada NÃO AUTENTICADA a
+# `api.github.com`. Isso quebrou o deploy em 2026-09-21: a API respondeu sem
+# `tag_name` (limite de requisições por IP do runner), o `grep -oP` saiu 1 e a
+# cadeia `&&` parou. A mesma imagem havia sido construída com sucesso 40
+# minutos antes.
+#
+# O problema maior não é a falha intermitente, é o que ela revela: dois builds
+# do MESMO commit podiam produzir imagens com Hugos diferentes. Um commit que
+# só muda Python levaria junto uma versão nova do compilador do site, sem que
+# nada no diff dissesse isso.
+#
+# Para atualizar, as duas linhas mudam JUNTAS:
+#
+#   V=0.167.0
+#   curl -sL https://github.com/gohugoio/hugo/releases/download/v$V/hugo_${V}_checksums.txt \
+#     | grep hugo_extended_${V}_linux-amd64.tar.gz
+#
+# O `sha256sum -c` não está aqui por desconfiança do GitHub: ele é o que
+# transforma "o download veio truncado" ou "o artefato foi trocado" num erro
+# nomeado, em vez de um `tar` estourando com mensagem sobre formato.
+ARG HUGO_VERSION=0.166.0
+ARG HUGO_SHA256=0e39b901e3f919f1daae05c8ff64f0c14c8a348ef46886d63f8e6d1bb2653885
+
 RUN apt-get update -qq \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
       wget ca-certificates \
- && HUGO_VERSION=$(wget -qO- https://api.github.com/repos/gohugoio/hugo/releases/latest \
-      | grep -oP '"tag_name": "v\K[^"]+') \
  && wget -qO /tmp/hugo.tar.gz \
       "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz" \
+ && echo "${HUGO_SHA256}  /tmp/hugo.tar.gz" | sha256sum -c - \
  && tar -xzf /tmp/hugo.tar.gz -C /usr/local/bin hugo \
+ && hugo version \
  && rm -rf /var/lib/apt/lists/* /tmp/hugo.tar.gz
 
 WORKDIR /src
