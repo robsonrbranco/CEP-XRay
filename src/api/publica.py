@@ -161,13 +161,25 @@ def criar_app(cfg: ConfigAPI, consultas=None) -> FastAPI:
 
     `consultas` é injetável para o teste rodar sem Firebird. O padrão é a
     consulta real; substituí-la não muda nenhum caminho de código testado.
+
+    Com `consultas=None` a função exige `cfg.firebird`. A alternativa — deixar
+    a configuração do banco ser lida do ambiente lá na primeira requisição —
+    fazia a aplicação depender de qual rota fosse chamada primeiro, porque só
+    o caminho do CEP importava um módulo que por acaso carregava o `.env`.
+    Ver a nota em `api/config.py`.
     """
     # Conexão viva por worker. Abrir attachment em embedded custa ~390 ms e a
     # consulta indexada custa menos de 1 ms — sem isto a API pagaria o
     # attachment a cada requisição.
     viva: ConexaoViva | None = None
     if consultas is None:
-        viva = ConexaoViva()
+        if cfg.firebird is None:
+            raise RuntimeError(
+                "cfg.firebird ausente: esta ConfigAPI não sabe qual base abrir. "
+                "Use ConfigAPI.do_ambiente() (o entrypoint carrega o ambiente) "
+                "ou injete `consultas=` para rodar sem Firebird"
+            )
+        viva = ConexaoViva(cfg.firebird)
         consultas = Consultas(viva)
 
     # `auto_error=False` porque quem decide o código é a API: sem isto o

@@ -1,5 +1,55 @@
 # 📝 Changelog — CEP-XRay
 
+## [0.2.1] - 2026-09-21
+
+### 🐛 Correção
+
+- **`criar_app` deixou de depender de quem carregou o ambiente.** `ConfigAPI`
+  cobria só metade do que a aplicação precisa — JWT, volumes, site — e a outra
+  metade (`DB_NAME`, `FB_EMBEDDED`, …) era lida do `os.environ` lá no fundo, na
+  **primeira consulta**. Era uma dependência que nenhuma assinatura declarava.
+
+  O sintoma vale guardar, porque é dos que não parecem um bug: a aplicação
+  funcionava se a primeira requisição do processo fosse de CEP e devolvia 500
+  se fosse a busca paginada. A causa são os imports preguiçosos de `Consultas`
+  — o caminho do CEP importa `consulta/cep.py`, que é **também uma CLI** e faz
+  `load_dotenv` no topo do módulo; o caminho da busca importa
+  `consulta/listagem.py`, que não é CLI e não faz. O comportamento da API
+  dependia da **ordem das rotas**, por efeito colateral de import.
+
+  E o erro apontava para o lugar errado: sem `FB_EMBEDDED` o DSN vira
+  `inet://localhost:3050/` e o driver responde *"Your user name and password
+  are not defined. Ask your database administrator to set up a Firebird
+  login"* — mandando procurar servidor, login e administrador que não existem,
+  porque a base é embedded num arquivo ao lado. Custou três rodadas de
+  investigação no lugar errado.
+
+  **Produção nunca sofreu**: o `Dockerfile` define as variáveis por `ENV` e o
+  entrypoint é o `servir.py`. Quem pagava era todo o resto — scripts, testes de
+  integração, um `uvicorn src.api.publica:app` futuro.
+
+  A correção é a configuração do banco entrar pelo `ConfigAPI`, como já entram
+  JWT e volumes: `do_ambiente()` monta tudo de uma vez e `criar_app` repassa ao
+  `ConexaoViva`. `load_dotenv` volta a ser assunto exclusivo dos entrypoints.
+  Duas guardas novas trocam erro tardio e enganoso por erro imediato e honesto:
+  `do_ambiente()` recusa `DB_NAME` vazio nomeando `DB_NAME`, e `criar_app`
+  recusa uma `ConfigAPI` sem banco quando vai de fato abrir o Firebird.
+
+- **A versão do pacote acompanha o CHANGELOG.** Mesma convenção adotada no
+  CNPJ-XRay: `pyproject.toml` e o topo deste arquivo descrevem o mesmo estado.
+  Os `version=` de `api/publica.py` (2.0) e `api/manager.py` (1.0) não entram
+  nessa conta — versionam o contrato HTTP no OpenAPI, e o `2.0` corresponde às
+  rotas `/cep/v2/` dos Correios.
+
+### 📊 Resultado
+
+**213 testes** (+6). Os novos estão em `tests/test_api_autossuficiencia.py` e
+olham a **construção**, não a consulta — é o que dá para falsificar sem
+Firebird, e é justamente por olhar só a consulta, com dublê injetado, que a
+suíte antiga não via nada.
+
+---
+
 ## [0.2.0] - 2026-09-21
 
 O projeto sai do disco e entra em produção: **https://hestia.ecomciencia.com**,

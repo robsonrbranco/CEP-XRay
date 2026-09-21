@@ -1,6 +1,6 @@
 [project]
 name = "cep-xray"
-version = "0.2.0"
+version = "0.2.1"
 description = "ETL e consulta da base de CEP em Firebird 3.0, com API compatível com a Busca CEP dos Correios"
 requires-python = ">=3.13"
 license = { file = "LICENSE" }
