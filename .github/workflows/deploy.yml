@@ -91,10 +91,30 @@ jobs:
           rm kubeconfig.yaml
 
       - name: Confere o que ficou no ar
-        # O pod de pé não basta: ele pode estar servindo a competência errada,
-        # se a base em /cep-xray-fdb tiver sido trocada por engano.
+        # ESTE PASSO NÃO VERIFICA O DEPLOY — o `rollout status` acima já fez
+        # isso, e fez melhor: a readiness do pod É um GET em /saude, então um
+        # rollout que conclui prova que a aplicação subiu e alcançou a base.
+        #
+        # O que se verifica aqui é o CAMINHO PÚBLICO: DNS, Cloudflare, ingress
+        # e Service. É outra falha, com outra causa, e merece outra mensagem.
+        #
+        # Por isso a distinção abaixo entre "o host não resolve" e "o host
+        # resolve e responde errado". A primeira é infraestrutura de DNS ainda
+        # não provisionada, e reprovar o deploy por causa dela deixaria o CI
+        # vermelho por um motivo que não tem nada a ver com o que foi entregue
+        # — e CI vermelho que todo mundo aprende a ignorar é pior que CI
+        # nenhum. A segunda é quebra de verdade e reprova.
         run: |
-          corpo=$(curl -sf --max-time 30 https://hestia.ecomciencia.com/saude)
+          HOST=hestia.ecomciencia.com
+          if ! getent hosts "$HOST" >/dev/null 2>&1; then
+            echo "::warning::$HOST ainda não resolve — o deploy está no ar no \
+          cluster (o rollout confirmou a readiness, que bate em /saude), mas o \
+          caminho público não foi verificado. Falta o registro DNS."
+            exit 0
+          fi
+
+          corpo=$(curl -sf --max-time 30 "https://$HOST/saude") || {
+            echo "::error::$HOST resolve mas /saude não respondeu"; exit 1; }
           echo "$corpo"
           echo "$corpo" | grep -q '"status":"ok"' || {
             echo "::error::/saude não respondeu ok"; exit 1; }
