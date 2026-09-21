@@ -124,8 +124,10 @@ kubectl -n "$NAMESPACE" wait --for=delete pod -l "app=$DEPLOYMENT" --timeout=180
 
 if [ -f "$ALVO" ]; then
   mv "$ALVO" "$ANTERIOR"
+  TINHA_ANTERIOR=1
   info "Base atual guardada como $(basename "$ANTERIOR") -- e o rollback"
 else
+  TINHA_ANTERIOR=0
   info "Primeira publicacao: nao havia base anterior"
 fi
 
@@ -142,12 +144,22 @@ rmdir "$ENVIO" 2>/dev/null || true
 echo
 info "Troca concluida."
 echo
-echo "    A base anterior continua em $(basename "$ANTERIOR")."
-echo
-echo "    Confira o /saude e a competencia servida. Se estiver errado:"
-echo "      kubectl -n $NAMESPACE scale deployment $DEPLOYMENT --replicas=0"
-echo "      mv '$ANTERIOR' '$ALVO'"
-echo "      kubectl -n $NAMESPACE scale deployment $DEPLOYMENT --replicas=1"
-echo
-echo "    Estando certo, apague a anterior -- esquecer acumula uma base por mes:"
-echo "      rm -f '$ANTERIOR'"
+
+# O epilogo depende de TER havido base anterior. Na primeira publicacao nao ha
+# rollback a oferecer, e imprimir o procedimento apontando para um arquivo que
+# nao existe mandaria quem estivesse em apuros rodar um `mv` que falha.
+if [ "$TINHA_ANTERIOR" -eq 1 ]; then
+  echo "    A base anterior continua em $(basename "$ANTERIOR")."
+  echo
+  echo "    Confira o /saude e a competencia servida. Se estiver errado:"
+  echo "      kubectl -n $NAMESPACE scale deployment $DEPLOYMENT --replicas=0"
+  echo "      mv '$ANTERIOR' '$ALVO'"
+  echo "      kubectl -n $NAMESPACE scale deployment $DEPLOYMENT --replicas=1"
+  echo
+  echo "    Estando certo, apague a anterior -- esquecer acumula uma base por mes:"
+  echo "      rm -f '$ANTERIOR'"
+else
+  echo "    Primeira publicacao: NAO HA ROLLBACK para esta troca."
+  echo "    Confira o /saude e a competencia servida; a partir da proxima"
+  echo "    competencia a base atual passa a ser o rollback."
+fi
