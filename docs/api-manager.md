@@ -184,20 +184,23 @@ Há teste garantindo que nenhuma das duas aplicações contém as rotas da outra
 
 ### Como usar na prática
 
-O `CMD` da imagem sobe **só** a API pública. O `/manager` não roda por padrão —
-manter o processo no ar o tempo todo seria superfície a mais para uma operação
-que acontece algumas vezes por ano.
-
-Duas sessões:
-
-```bash
-kubectl -n olympus exec -it deploy/hestia -- \
-  python -m src.api.servir --manager --porta 8001
-```
+O `CMD` da imagem sobe **só** a API pública. No cluster, o `/manager` roda como
+**segundo container do mesmo pod**, ligado a `127.0.0.1:8001` — não alcançável
+de outro pod nem da rede. O `kubectl port-forward` chega nele mesmo assim,
+porque o encaminhamento entra no namespace de rede do pod:
 
 ```bash
 kubectl -n olympus port-forward deploy/hestia 8001:8001
 ```
+
+Segundo *container*, e não segundo processo no mesmo container: a separação em
+processos já é exigência do desenho de `servir.py`, e containers do mesmo pod
+compartilham a rede — então a propriedade de segurança é idêntica, e em troca o
+kubelet reinicia cada um por conta própria, sem supervisor escrito à mão.
+
+O sidecar **não monta `/data`**: o `/manager` não consulta a base, só lê
+credenciais e consolida log. Não montar o que não se usa é a diferença entre
+"não lê a base" e "não pode". Custo medido no pod: 35 MB de RSS.
 
 ```bash
 curl -s -X POST localhost:8001/manager/credenciais \
