@@ -81,10 +81,40 @@ COPY docker/firebird.conf /etc/firebird/3.0/firebird.conf
 RUN mkdir -p /tmp/firebird && chmod 1777 /tmp/firebird
 
 WORKDIR /app
-COPY pyproject.toml ./
+
+# MENOS pacotes do que o `pyproject.toml` declara, e isso é deliberado.
+#
+# O pod serve consulta e **nunca roda o ETL**. `polars` e `rich` são do ETL e
+# da CLI, e não entram. Medido dentro da imagem anterior:
+#
+#     _polars_runtime_32   172 MB
+#     polars                 9 MB
+#     pygments               9 MB   (dependência do rich)
+#     rich                   3 MB
+#     ---------------------------
+#                          193 MB de 252 MB de site-packages
+#
+# Isso não é palpite sobre o que "deve" ser preciso: o grafo de import da API
+# inteira foi medido (141 módulos de topo) e nenhum deles alcança os três.
+# `tests/test_imagem_enxuta.py` trava a propriedade, rodando com `polars`
+# INSTALADO e reprovando se a superfície do pod encostar nele — porque em
+# desenvolvimento o import passaria e o erro só apareceria ao subir o pod.
+#
+# `uvloop` (16 MB) FICA, ainda que também seja grande: ele troca o event loop
+# do asyncio e é o pod usando, não o ETL.
+#
+# O `pip` sai depois de instalar. São 12 MB, e um container de produção não
+# tem por que carregar um instalador de pacotes.
 RUN pip install --no-cache-dir \
-      "firebird-driver>=2.0.0" "python-dotenv>=1.0.0" "rich>=13.0.0" \
-      "polars>=1.42.1" "fastapi>=0.115.0" "uvicorn[standard]>=0.30.0"
+      "firebird-driver>=2.0.0" "python-dotenv>=1.0.0" \
+      "fastapi>=0.115.0" "uvicorn[standard]>=0.30.0" \
+ && pip uninstall -y pip setuptools wheel
+# Não se apaga `__pycache__` aqui, e a tentação é grande: são dezenas de MB.
+# Mas o pod tem `strategy: Recreate`, então cada deploy paga o start inteiro
+# com a readiness esperando — e sem o .pyc cada import recompila. Trocar
+# espaço em disco por latência de subida num serviço que reinicia a cada push
+# é o lado errado da troca. Se um dia isso for medido e valer, fica aqui a
+# nota de que foi considerado.
 
 COPY src/ ./src/
 COPY --from=site /src/public/ ./site/
