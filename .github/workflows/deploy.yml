@@ -83,8 +83,19 @@ jobs:
         run: |
           echo "${{ secrets.KUBECONFIG_OLYMPUS }}" > kubeconfig.yaml
           export KUBECONFIG=kubeconfig.yaml
+          # OS DOIS containers, não só o `hestia`. O pod roda a API pública e
+          # o /manager a partir da MESMA imagem, com comandos diferentes.
+          # `set image` atualiza container por nome: esquecer o `manager` aqui
+          # o deixaria na tag `latest` do manifest enquanto a API avança pelo
+          # SHA. Na prática eles coincidiriam quase sempre — `Always` +
+          # `Recreate` puxam o `latest` recém-publicado —, mas "quase sempre"
+          # é o pior tipo de garantia: num rollback por SHA os dois passariam
+          # a ler o mesmo SQLite de credenciais com códigos de versões
+          # diferentes, e a divergência só apareceria meses depois, na gestão
+          # de credencial.
           kubectl -n olympus set image deployment/hestia \
-            hestia=ghcr.io/robsonrbranco/cep-xray:${{ github.sha }}
+            hestia=ghcr.io/robsonrbranco/cep-xray:${{ github.sha }} \
+            manager=ghcr.io/robsonrbranco/cep-xray:${{ github.sha }}
           # 300s e não 120s porque a strategy é Recreate: o pod velho morre
           # antes de o novo subir, e a readiness espera o attach do Firebird.
           kubectl -n olympus rollout status deployment/hestia --timeout=300s
