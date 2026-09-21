@@ -231,3 +231,126 @@ NAO_ALIMENTAVEL = {
                        "inventado.",
     }
 }
+
+
+# ---------------------------------------------------------------------------
+# Modelos do /manager
+#
+# Aplicação separada, porta separada, não exposta. O contrato aqui é NOSSO, não
+# imita ninguém — e por isso mantém `consumerKey`/`consumerSecret`, que são os
+# nomes que o resto da gestão de credenciais usa.
+# ---------------------------------------------------------------------------
+
+class ErroManager(BaseModel):
+    """O `/manager` usa `HTTPException` do FastAPI, que devolve `detail`.
+
+    A pública devolve `message`, para casar com o contrato dos Correios. Os dois
+    formatos convivem de propósito: um imita contrato de terceiro, o outro é
+    nosso.
+    """
+
+    detail: str = Field(examples=["credencial não encontrada"])
+
+
+class Contratante(BaseModel):
+    nome: str = Field(examples=["ACME Logística Ltda"])
+    documento: str | None = Field(default=None, examples=["11222333000181"])
+    email: str | None = Field(default=None, examples=["ti@acme.com.br"])
+
+
+class Credencial(BaseModel):
+    consumerKey: str = Field(examples=["djaR21PGoYp1iyK2n2ACOH9REdUb"])
+    contratante: Contratante
+    criadaEm: str = Field(examples=["2026-09-21T18:30:00+00:00"])
+    status: str = Field(
+        examples=["ativa"], description="`ativa`, `suspensa` ou `revogada`"
+    )
+    revogadaEm: str | None = None
+    quotaMensal: int | None = Field(
+        default=None,
+        description="Limite contratado de consultas faturáveis por mês. "
+                    "Nulo = sem limite. Estourar devolve 403 na API pública.",
+    )
+    observacao: str | None = None
+
+
+class CredencialComConsumo(Credencial):
+    consumoDoMes: int = Field(
+        default=0,
+        description="Consultas faturáveis no mês corrente, vindas do log "
+                    "consolidado.",
+    )
+
+
+class CredencialCriada(Credencial):
+    consumerSecret: str = Field(
+        examples=["ObRsAJWOL4fv2Tp27D1vd8fB3Ote"],
+        description="APARECE UMA ÚNICA VEZ. Só o hash é guardado; não há como "
+                    "recuperá-lo depois, apenas rotacionar.",
+    )
+    aviso: str
+
+
+class SegredoRotacionado(BaseModel):
+    consumerKey: str
+    consumerSecret: str = Field(
+        description="APARECE UMA ÚNICA VEZ. O segredo anterior deixa de valer "
+                    "imediatamente.",
+    )
+    aviso: str
+
+
+class ListaCredenciais(BaseModel):
+    credenciais: list[Credencial] = Field(default_factory=list)
+
+
+class UsoMensal(BaseModel):
+    competencia: str = Field(
+        examples=["2026-09"],
+        description="Mês do CONSUMO, não a competência do extrato DNEC. Os dois "
+                    "usam a palavra e não são a mesma coisa.",
+    )
+    consultas: int
+    faturaveis: int
+
+
+class Estatisticas(BaseModel):
+    consumerKey: str | None = Field(
+        default=None, description="Nulo no resumo geral."
+    )
+    competencia: str | None = None
+    consultas: int = 0
+    faturaveis: int = Field(
+        default=0,
+        description="Exclui 400, 401, 403, 500, 502 e 504 — os códigos "
+                    "documentados como transações não faturáveis.",
+    )
+    duracaoMediaMs: float = 0.0
+    porRota: dict[str, int] = Field(default_factory=dict)
+    porStatus: dict[str, int] = Field(default_factory=dict)
+    porMes: list[UsoMensal] = Field(default_factory=list)
+
+
+class EstatisticasDaCredencial(Estatisticas):
+    quotaMensal: int | None = None
+    consumoDoMes: int = 0
+    percentualDaQuota: float | None = Field(
+        default=None, description="Ausente quando não há quota contratada."
+    )
+
+
+class Consolidacao(BaseModel):
+    arquivos: int = Field(description="Arquivos de log lidos nesta chamada.")
+    linhas: int
+
+
+class Poda(BaseModel):
+    arquivosApagados: int
+
+
+NAO_ENCONTRADA = {
+    404: {"model": ErroManager, "description": "Credencial não encontrada"}
+}
+ENTRADA_INVALIDA = {
+    400: {"model": ErroManager, "description": "Requisição inválida"}
+}
