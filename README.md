@@ -181,6 +181,11 @@ Compatível com o contrato dos Correios, com três diferenças que são da fonte
 não do código — o retrato mensal, seis campos sempre nulos, e três recursos que
 devolvem `501`. Detalhes em [`docs/api-compativel-correios.md`](docs/api-compativel-correios.md).
 
+A gestão de credenciais e de consumo roda numa segunda aplicação, em processo e
+porta separados e **não exposta** — ver [`docs/api-manager.md`](docs/api-manager.md).
+O CEP consultado **não vai para o log**: um CNPJ identifica uma empresa, um CEP
+identifica onde alguém mora.
+
 ## Origem dos dados
 
 Extrato DNEC/Correios, entregue como scripts `.sql`. A competência vem do token

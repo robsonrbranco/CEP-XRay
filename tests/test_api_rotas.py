@@ -298,13 +298,28 @@ def test_consulta_e_registrada_mesmo_em_erro(ambiente):
     assert por_status[400]["faturavel"] is False
 
 
-def test_rota_no_log_nao_traz_o_cep(ambiente):
-    """O log guarda a rota como padrão, não como caminho concreto: agrupar por
-    rota não deve virar uma chave por CEP consultado."""
+def test_o_cep_consultado_nunca_vai_para_o_log(ambiente):
+    """Decisão, não omissão — e por isso travada aqui.
+
+    `uso.Log.registrar` aceita um `ni=`, e o molde (CNPJ-XRay) o preenche com o
+    CNPJ consultado. Aqui fica de fora: um CNPJ identifica uma empresa, um CEP
+    identifica onde alguém mora. Registrar quais CEPs cada cliente consulta é
+    montar um histórico de endereços pesquisados.
+
+    O teste cobre as duas portas por onde o CEP poderia escapar: o campo `ni` e
+    o campo `rota`.
+    """
     cfg, cliente, cred, segredo = ambiente
     tok = _bearer(cliente, cred, segredo)
     cliente.get(f"/cep/v2/enderecos/{CEP}", headers=tok)
-    assert _linhas_do_log(cfg)[0]["rota"] == "/cep/v2/enderecos/{cep}"
+
+    linha = _linhas_do_log(cfg)[0]
+    assert linha["ni"] is None
+    # A rota é o PADRÃO, não o caminho concreto. Sem isto, agrupar por rota
+    # viraria uma chave por CEP consultado.
+    assert linha["rota"] == "/cep/v2/enderecos/{cep}"
+    # Cinto e suspensório: o CEP não aparece em lugar nenhum da linha.
+    assert CEP not in json.dumps(linha)
 
 
 # -- separação das aplicações ----------------------------------------------

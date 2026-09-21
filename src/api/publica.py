@@ -356,6 +356,21 @@ def criar_app(cfg: ConfigAPI, consultas=None) -> FastAPI:
         except Exception:  # noqa: BLE001
             status = 500
         finally:
+            # O CEP CONSULTADO NÃO É REGISTRADO, e isto é decisão, não omissão.
+            #
+            # `uso.Log.registrar` aceita um `ni=` e o molde (CNPJ-XRay) o
+            # preenche com o CNPJ consultado. Aqui ele fica de fora: um CNPJ
+            # identifica uma empresa, um CEP identifica onde alguém mora.
+            # Guardar quais CEPs cada cliente consulta é montar, sem precisar,
+            # um histórico de endereços pesquisados.
+            #
+            # O que se perde: não dá para investigar "por que este cliente
+            # recebeu 404 ontem" a partir do log. O que se ganha é não ter esse
+            # dado para vazar, e não precisar de política de retenção para ele.
+            #
+            # `rota` entra como PADRÃO (`/cep/v2/enderecos/{cep}`), não como
+            # caminho concreto — senão o CEP voltaria por essa porta, e agrupar
+            # por rota viraria uma chave por CEP consultado.
             request.app.state.log.registrar(
                 consumer_key=chave,
                 rota=rota,
