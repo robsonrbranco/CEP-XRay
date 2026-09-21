@@ -1,0 +1,102 @@
+# Build, teste e deploy do Hestia no cluster Olympus.
+#
+# O manifest NÃO mora aqui, mora no `infra-olympus` (`k8s/hestia.yaml`): aquele
+# repositório é a fonte de verdade do que roda no cluster, e alguém lendo só
+# ele precisa conseguir enxergar todos os serviços. Este workflow só troca a
+# imagem de um Deployment que já existe.
+#
+# Consequência: a PRIMEIRA aplicação do manifest é manual, a partir do
+# infra-olympus. Daí em diante o deploy é este workflow.
+#
+# O que este pipeline deliberadamente NÃO faz: publicar a base. Ela é
+# construída na estação e enviada por `python -m src.publicacao.enviar`, que
+# para o pod por alguns segundos para renomear o arquivo. Isso é decisão
+# humana, não gatilho de push. Ver HESTIA.md no infra-olympus.
+
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "site/**"
+      - "Dockerfile"
+      - "docker/**"
+      - "pyproject.toml"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  # Por serviço, não global: o Themis tem o seu. Dois deploys simultâneos
+  # brigariam pelo mesmo Deployment, e o `Recreate` do manifest derrubaria o
+  # pod duas vezes. Fila, não cancelamento.
+  group: deploy-hestia
+  cancel-in-progress: false
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Instalar
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest httpx
+      - name: Testes
+        # Sem Firebird e sem rede: o tokenizador opera sobre bytes, a troca
+        # blue-green é renomeação de arquivo, e as rotas rodam com a consulta
+        # injetada.
+        run: python -m pytest -q
+
+  build-e-deploy:
+    needs: testes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e push
+        run: |
+          docker build \
+            -t ghcr.io/robsonrbranco/cep-xray:${{ github.sha }} \
+            -t ghcr.io/robsonrbranco/cep-xray:latest .
+          docker push ghcr.io/robsonrbranco/cep-xray:${{ github.sha }}
+          docker push ghcr.io/robsonrbranco/cep-xray:latest
+
+      - uses: azure/setup-kubectl@v5
+
+      - name: Deploy
+        run: |
+          echo "${{ secrets.KUBECONFIG_OLYMPUS }}" > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl -n olympus set image deployment/hestia \
+            hestia=ghcr.io/robsonrbranco/cep-xray:${{ github.sha }}
+          # 300s e não 120s porque a strategy é Recreate: o pod velho morre
+          # antes de o novo subir, e a readiness espera o attach do Firebird.
+          kubectl -n olympus rollout status deployment/hestia --timeout=300s
+          rm kubeconfig.yaml
+
+      - name: Confere o que ficou no ar
+        # O pod de pé não basta: ele pode estar servindo a competência errada,
+        # se a base em /cep-xray-fdb tiver sido trocada por engano.
+        run: |
+          corpo=$(curl -sf --max-time 30 https://hestia.ecomciencia.com/saude)
+          echo "$corpo"
+          echo "$corpo" | grep -q '"status":"ok"' || {
+            echo "::error::/saude não respondeu ok"; exit 1; }
+          comp=$(echo "$corpo" | grep -oP '"competencia":"\K[^"]+')
+          echo "::notice::Hestia no ar servindo a competência $comp"

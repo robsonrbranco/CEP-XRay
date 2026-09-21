@@ -1,0 +1,7 @@
+baseURL = "https://hestia.ecomciencia.com/"
+# `locale`, não `languageCode`: este último foi descontinuado no Hugo v0.158.
+locale = "pt-BR"
+title = "Hestia — Busca CEP"
+
+# Nada de taxonomia, RSS ou sitemap: é uma página só.
+disableKinds = ["taxonomy", "term", "RSS", "sitemap"]

@@ -253,6 +253,10 @@ def main() -> int:
 
     if args.acao == "gerar":
         m = gerar(cfg, arquivo, args.competencia)
+        # Cria o diretório antes de escrever: o manifesto é gerado uma vez por
+        # competência, depois de minutos de SHA-256, e falhar aqui por causa de
+        # uma pasta inexistente jogaria esse trabalho fora.
+        Path(args.saida).parent.mkdir(parents=True, exist_ok=True)
         Path(args.saida).write_text(
             json.dumps(m, indent=2, ensure_ascii=False), encoding="utf-8"
         )

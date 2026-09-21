@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Não encontrado — {{ .Site.Title }}</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#F7F4EE;--ink:#262622;--pine:#1F6F5C;--line:#DAD4C4;--paper-alt:#EFEBE1}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,sans-serif;line-height:1.6;
+  display:flex;min-height:100vh;align-items:center;justify-content:center}
+.caixa{max-width:560px;padding:32px 20px}
+h1{font-family:Fraunces,Georgia,serif;font-size:2rem;margin:0 0 8px}
+p{opacity:.82}
+ul{list-style:none;padding:0;margin:20px 0 0;background:var(--paper-alt);
+  border:1px solid var(--line);border-radius:2px}
+li{padding:9px 14px;border-bottom:1px solid var(--line);
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88rem}
+li:last-child{border-bottom:0}
+a{color:var(--pine)}
+</style>
+</head>
+<body><div class="caixa">
+  <h1>Não encontrado</h1>
+  <p>Este caminho não existe. Uma dessas rotas provavelmente é a que você quer
+  — e a referência completa está em <a href="/docs">/docs</a>.</p>
+  <ul>
+    <li>POST /token/v1/autentica</li>
+    <li>GET /cep/v2/enderecos/{cep}</li>
+    <li>GET /cep/v1/localidades/{uf}</li>
+    <li>GET /cep/v1/bairros/{uf}/localidades/{id}</li>
+    <li>GET /cep/v1/ufs</li>
+    <li>GET /cep/v1/atualizacao</li>
+    <li>GET /saude</li>
+  </ul>
+</div></body>
+</html>
