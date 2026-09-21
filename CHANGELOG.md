@@ -1,5 +1,101 @@
 # 📝 Changelog — CEP-XRay
 
+## [0.2.0] - 2026-09-21
+
+O projeto sai do disco e entra em produção: **https://hestia.ecomciencia.com**,
+servindo a competência 2026-10 no cluster Olympus.
+
+Quase tudo abaixo foi encontrado *fazendo* — subindo o serviço, rodando o
+procedimento de publicação, lendo o manifest do serviço irmão. Nenhum teste de
+rota teria pego a maioria.
+
+### 🚀 Em produção
+
+- Repositório público, deployment `hestia` no namespace `olympus`, DNS pelo
+  Terraform do `infra-olympus`, TLS terminando no Cloudflare.
+- Base publicada pelo caminho desenhado (`preparar` → `enviar` → `trocar`):
+  239 MB comprimidos para 79 MB (3,02x), com **downtime de segundos** — a
+  inversão de ordem em relação ao Themis funcionou como prometido.
+- Garantias de somente-leitura confirmadas nos dois níveis:
+  `touch /data/teste` → *Read-only file system* (kernel);
+  `UPDATE` → *attempted update on read-only database* (engine).
+- Backup diário do `/creds` para o R2, com snapshot consistente dos SQLite
+  pela API de backup online — `cp` num banco em WAL produz backup rasgado, que
+  parece ter funcionado e só falha no dia do restore.
+
+### ✨ Novo
+
+- **`/manager` como sidecar**, ligado a `127.0.0.1:8001`. A primeira versão
+  usava `kubectl exec` em duas sessões, com o argumento de que um processo
+  sempre no ar seria superfície a mais. O Themis já tinha medido e o argumento
+  não se sustenta: 35 MB de RSS. E o sidecar ganha o que o `exec` não dá — o
+  kubelet reinicia o processo sozinho, sem supervisor escrito à mão.
+- **Credencial de CI estreita.** O `KUBECONFIG_OLYMPUS` seria o kubeconfig do
+  k3s — `system:admin` em `system:masters`, poder total sobre os sete serviços,
+  baseado em certificado X509 que o k3s não revoga individualmente. No lugar,
+  uma ServiceAccount que escreve **apenas no `hestia`**, por `resourceName`.
+- **`docs/api-manager.md`**, com as decisões de armazenamento, credencial e
+  quota.
+
+### ⚡ Decisões medidas
+
+- **A imagem caiu 42%: 140 MB → 81 MB.** O pod carregava o ETL inteiro e nunca
+  o roda. Saíram `polars` (181 MB), `rich` + `pygments` (12 MB) e `pip`
+  (12 MB); `site-packages` foi de 252 MB para 46 MB e o pull de 17,3 s para
+  4,9 s. Não foi palpite: o grafo de import da API foi medido num processo
+  limpo — 141 módulos de topo, nenhum alcançando os três — e confirmado no
+  processo servindo (`grep -c polars /proc/1/maps` → 0).
+- **O CEP consultado NÃO vai para o log**, e isso é decisão declarada, não
+  omissão. O molde registra o CNPJ consultado, e faz sentido lá: um CNPJ
+  identifica uma empresa. Um CEP identifica **onde alguém mora**. O que se
+  perde é real — não dá para investigar "por que este cliente recebeu 404
+  ontem" pelo log. O que se ganha é não ter esse dado para vazar.
+- **O fallback por faixa cobre 91,6%** dos 100 milhões de números de 8 dígitos,
+  medido. Então `99999999` devolve 200 (topo da faixa do RS) e `00000000`
+  devolve 404. Ele responde "a que município este CEP pertence", não "este CEP
+  está cadastrado" — quem precisa da distinção olha `tipoCEP`.
+
+### 🐛 Correções que custaram caro
+
+- **O `/manager` não construía.** Ao reescrever `api/esquemas.py` para o
+  contrato dos Correios, os modelos que só ele usa ficaram de fora, e a
+  aplicação estourava `AttributeError` no import. Nenhum teste pegou porque
+  nenhum teste construía o manager. A correção de verdade foi
+  `tests/test_api_manager.py`, cujo primeiro teste é literalmente "o app
+  monta" — parece trivial e era o que faltava. O bug só apareceria na primeira
+  vez que alguém fosse cadastrar um consumidor, via `kubectl exec`, no pior
+  momento.
+- **As três rotas 501 casavam como UF.** Registradas depois de
+  `/cep/v1/localidades/{uf}`, o Starlette casava `cliques` como sigla e
+  devolvia 400 "UF inválida" no lugar do 501 que explica o que falta. A ordem
+  de registro virou requisito, travado por teste.
+- **Colisão de rótulo no cursor.** `logradouro.estado` (a sigla) e
+  `estado.estado` (o nome) chegavam com o mesmo nome e o segundo sobrescrevia
+  o primeiro: a resposta traria "São Paulo" onde promete "SP". Todo apelido do
+  SQL é explícito agora.
+- **`set image` tocava só um container.** O `manager` ficava preso na tag
+  `latest` enquanto a API avançava pelo SHA. Na prática coincidiriam quase
+  sempre — e "quase sempre" é o pior tipo de garantia: num rollback por SHA os
+  dois leriam o mesmo SQLite com códigos de versões diferentes.
+- **`trocar-base.sh` oferecia rollback inexistente.** Na primeira publicação
+  ele detectava corretamente que não havia base anterior, e mesmo assim
+  imprimia o procedimento de rollback apontando para um arquivo que não
+  existe. Quem estivesse em apuros seguiria a instrução e rodaria um `mv` que
+  falha.
+- **O CI reprovava por DNS ausente.** O passo que confere o `/saude` público
+  não verifica o deploy — o `rollout status` já faz isso, e melhor, porque a
+  readiness do pod *é* um `GET /saude`. Ele verifica o caminho público. São
+  falhas diferentes: host que não resolve agora sai como aviso, host que
+  responde errado continua reprovando.
+
+### 📊 Resultado
+
+**207 testes**, sem Firebird e sem rede. Serviço no ar com pipeline verde de
+ponta a ponta: push → testes → imagem → `set image` com credencial estreita →
+rollout → conferência do `/saude` público.
+
+---
+
 ## [0.1.0] - 2026-09-21
 
 Primeira versão. O projeto nasce inteiro: ETL, base, API, testes e deploy.
