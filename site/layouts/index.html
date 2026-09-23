@@ -89,6 +89,7 @@ footer p{margin:0 0 6px;max-width:66ch}
   <span class="marca">Hestia</span>
   <a href="#endpoints">Endpoints</a>
   <a href="#autenticacao">Autenticação</a>
+  <a href="#agentes">Agentes (MCP)</a>
   <a href="#diferencas">Diferenças</a>
   <a href="#docs">Documentação</a>
 </div></nav>
@@ -129,6 +130,7 @@ footer p{margin:0 0 6px;max-width:66ch}
       <tr class="nao"><td class="metodo">GET</td><td class="rota">/cep/v1/localidades/caixas-postais</td><td>501 — idem</td></tr>
       <tr class="nao"><td class="metodo">GET</td><td class="rota">/cep/v1/localidades/agencias-modulares</td><td>501 — idem</td></tr>
       <tr><td class="metodo">GET</td><td class="rota">/saude</td><td>Estado do serviço e competência. Sem autenticação</td></tr>
+      <tr><td class="metodo">POST</td><td class="rota">/mcp</td><td>Camada MCP para agentes de IA — ver <a href="#agentes">abaixo</a></td></tr>
     </tbody>
   </table>
 </div></section>
@@ -146,6 +148,78 @@ curl -X POST https://hestia.ecomciencia.com/token/v1/autentica \
 <span class="c"># 2. consulta</span>
 curl https://hestia.ecomciencia.com/cep/v2/enderecos/01001000 \
      -H "Authorization: Bearer $TOKEN"</pre>
+</div></section>
+
+<section id="agentes"><div class="wrap">
+  <h2>Para agentes de IA: MCP</h2>
+  <p class="lead">Além do contrato dos Correios, o Hestia fala o
+  <a href="https://modelcontextprotocol.io">Model Context Protocol</a> em
+  <code>POST /mcp</code> — o padrão aberto pelo qual plataformas agênticas
+  descobrem e usam ferramentas. O agente consulta CEP como uma ferramenta, sem
+  código de integração, e deixa de preencher endereço de memória.</p>
+
+  <div class="cards">
+    <div class="card"><b>Plugar e usar</b><span>Registre a URL e o token no
+    cliente MCP do agente. As ferramentas aparecem sozinhas, com descrição e
+    parâmetros.</span></div>
+    <div class="card"><b>Segredo fora do modelo</b><span>O token fica na
+    configuração do cliente. O modelo vê as ferramentas, nunca a
+    credencial.</span></div>
+    <div class="card"><b>Resposta enxuta</b><span>Sem os campos que o contrato
+    dos Correios manda sempre nulos, e com a competência do dado em toda
+    resposta.</span></div>
+    <div class="card"><b>Salvaguardas no protocolo</b><span>O servidor avisa ao
+    modelo que a base é um retrato, que texto de cadastro é dado e não
+    instrução, e que base fora do ar é valor desconhecido — não endereço
+    inventado.</span></div>
+  </div>
+
+  <table style="margin-top:26px">
+    <thead><tr><th>Ferramenta</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="rota">consultar_cep</td><td>Endereço de um CEP. Devolve <code>encontrado: false</code> se o CEP não estiver na competência servida</td></tr>
+      <tr><td class="rota">buscar_enderecos</td><td>Busca por UF, município, bairro ou prefixo do logradouro, até 50 por página</td></tr>
+      <tr><td class="rota">listar_localidades</td><td>Municípios, com o <code>id</code> usado na busca, o código IBGE e o DDD</td></tr>
+      <tr><td class="rota">hestia://competencia</td><td>Recurso: de qual extrato vêm as respostas</td></tr>
+    </tbody>
+  </table>
+
+<pre><span class="c"># OpenClaw</span>
+openclaw mcp add hestia --url https://hestia.ecomciencia.com/mcp \
+     --header "Authorization=Bearer $TOKEN_MCP"
+
+<span class="c"># Claude Code</span>
+claude mcp add --transport http hestia https://hestia.ecomciencia.com/mcp \
+     --header "Authorization: Bearer $TOKEN_MCP"
+
+<span class="c"># .mcp.json (Claude Code e clientes com o mesmo formato)</span>
+{"mcpServers": {"hestia": {"type": "http",
+  "url": "https://hestia.ecomciencia.com/mcp",
+  "headers": {"Authorization": "Bearer $TOKEN_MCP"}}}}</pre>
+
+  <div class="nota">
+    <b>O token do MCP é outro</b>
+    <p>Não é o token de uma hora do <code>/token/v1/autentica</code>: é emitido
+    pela Ecomciência para a sua credencial, vale até um ano e só funciona em
+    <code>/mcp</code> — as rotas REST o recusam, e o <code>/mcp</code> recusa o
+    token delas. Revogar a credencial ou trocar o código de acesso o invalida
+    na hora. Para obter, escreva para
+    <a href="mailto:contato@ecomciencia.com">contato@ecomciencia.com</a>.</p>
+  </div>
+
+  <div class="nota">
+    <b>Mesma cota, mesma cobrança</b>
+    <p>Cada consulta pelo MCP conta como uma consulta da API; descobrir as
+    ferramentas não conta. O CEP consultado não é registrado, pela mesma razão
+    que no REST: um CEP diz onde alguém mora.</p>
+  </div>
+
+  <div class="nota">
+    <b>Autenticação por cabeçalho</b>
+    <p>Funciona com qualquer cliente MCP que envie cabeçalho de autorização —
+    conferido com o cliente oficial do protocolo e com o OpenClaw. Conectores
+    que exigem login OAuth ainda não são atendidos.</p>
+  </div>
 </div></section>
 
 <section id="diferencas"><div class="wrap">

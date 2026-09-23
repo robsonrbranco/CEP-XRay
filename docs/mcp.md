@@ -158,5 +158,7 @@ faturável, com a credencial do agente — e o CEP em nenhum arquivo.
   resposta de sucesso; declarar o schema faria o cliente validar.
 - **UFs e bairros** existem no REST e não viraram ferramenta. Entram se algum
   agente precisar.
-- **O Themis** (CNPJ) recebe a mesma camada, com o mesmo código: `mcp.py`,
-  `token.py` e `credenciais.py` são compartilháveis entre os dois projetos.
+- **O núcleo de `mcp.py` está duplicado** com o do CNPJ-XRay (Themis, que
+  recebeu a mesma camada na 3.2.0), com os mesmos nomes e a mesma estrutura;
+  `token.py` e `credenciais.py` são idênticos entre os dois. Mudança no núcleo
+  tem que ir para os dois projetos.
