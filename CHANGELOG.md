@@ -1,5 +1,42 @@
 # 📝 Changelog — CEP-XRay
 
+## [0.3.0] - 2026-09-23
+
+### ✨ Novo
+
+- **Camada MCP para agentes, em `POST /mcp`.** Piloto do Hestia como serviço
+  de *data foundation* para plataformas agênticas: três ferramentas
+  (`consultar_cep`, `buscar_enderecos`, `listar_localidades`) e o recurso
+  `hestia://competencia`, com resposta enxuta — os seis campos que o contrato
+  dos Correios manda sempre nulos não viajam. Detalhes em `docs/mcp.md`.
+
+- **Token próprio do MCP, emitido pelo `/manager`.** Novo
+  `POST /manager/credenciais/{chave}/token-mcp`, de 1 a 365 dias. Leva `aud`
+  (a URI do endpoint) e `gen` (a geração do segredo). **Cada porta recusa o
+  token da outra**: o REST recusa token com `aud`, o MCP recusa token sem a
+  sua. Revogar a credencial ou rotacionar o segredo derruba o token de longa
+  duração na hora — é o que torna aceitável ele viver meses.
+
+### 🔧 Decisões registradas
+
+- **Protocolo implementado à mão, sem o SDK oficial.** O pacote `mcp` 2.2.0
+  acrescentaria ~24 MB à imagem Linux (12 MB de `cryptography`), contra os 81
+  MB atuais. O subconjunto necessário — HTTP sem sessão, resposta JSON, tools e
+  resources — é pequeno. A conformidade foi conferida contra o cliente oficial:
+  sondagem `server/discover`, volta ao `initialize`, negociação de 2025-11-25,
+  ferramentas, recurso e `ping`.
+- **Mesma cobrança do REST.** Cada `tools/call` vai para o mesmo log, com
+  `rota: mcp:<ferramenta>` e o status que o REST daria; descoberta não gera
+  linha. **O CEP consultado continua fora do log.**
+- **`Credenciais.geracao` deriva do `secret_salt`**, que já muda a cada
+  rotação: nenhuma coluna nova, nenhuma migração da tabela em produção.
+
+### 📊 Resultado
+
+- 259 testes (42 novos). As três checagens de segurança — audiência no MCP,
+  audiência no REST e geração do segredo — foram sabotadas uma a uma, e cada
+  sabotagem reprovou o teste que a protege.
+
 ## [0.2.2] - 2026-09-21
 
 ### 🐛 Correção

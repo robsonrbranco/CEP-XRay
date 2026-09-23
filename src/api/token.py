@@ -53,8 +53,16 @@ def _assinar(cabecalho_payload: str, segredo: str) -> str:
 
 
 def emitir(consumer_key: str, segredo: str, validade_s: int = VALIDADE_S,
-           escopo: str = "default", agora: int | None = None) -> tuple[str, int]:
-    """Devolve (token, expires_in)."""
+           escopo: str = "default", agora: int | None = None,
+           audiencia: str | None = None,
+           geracao: str | None = None) -> tuple[str, int]:
+    """Devolve (token, expires_in).
+
+    `audiencia` e `geracao` só existem no token do MCP (ver `api/mcp.py`). O
+    token do contrato dos Correios sai sem os dois, e é a AUSÊNCIA de `aud` que
+    o identifica: cada lado recusa o token do outro. Sem essa separação, um
+    token de 90 dias emitido para um agente valeria também nas rotas REST.
+    """
     iat = int(agora if agora is not None else time.time())
     cabecalho = {"alg": ALGORITMO, "typ": "JWT"}
     payload = {
@@ -63,6 +71,10 @@ def emitir(consumer_key: str, segredo: str, validade_s: int = VALIDADE_S,
         "exp": iat + validade_s,
         "scope": escopo,
     }
+    if audiencia is not None:
+        payload["aud"] = audiencia
+    if geracao is not None:
+        payload["gen"] = geracao
     # separators sem espaço: JSON compacto, para o token não crescer à toa.
     partes = ".".join(
         _b64(json.dumps(p, separators=(",", ":"), sort_keys=True).encode())

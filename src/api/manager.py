@@ -18,10 +18,14 @@ dia for preciso defesa em profundidade, a credencial administrativa entra
 
 from __future__ import annotations
 
+import time
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from . import esquemas
+from . import token as mod_token
 from .config import ConfigAPI
 from .credenciais import Credenciais, CredencialNaoEncontrada, STATUS_VALIDOS
 from .uso import Estatisticas
@@ -150,6 +154,51 @@ def criar_app(cfg: ConfigAPI) -> FastAPI:
         secret = request.app.state.credenciais.rotacionar(chave)
         return {"consumerKey": chave, "consumerSecret": secret,
                 "aviso": "o segredo anterior deixou de valer imediatamente"}
+
+    @app.post(
+        "/manager/credenciais/{chave}/token-mcp",
+        response_model=esquemas.TokenMCP,
+        responses={**esquemas.NAO_ENCONTRADA, **esquemas.ENTRADA_INVALIDA},
+        summary="Emite um token de longa duração para o endpoint MCP",
+        description="Para clientes de agente que só aceitam cabeçalho estático. "
+                    "O token vale **só** no `/mcp` (claim `aud`), cai na hora "
+                    "se a credencial for revogada ou suspensa, e cai também "
+                    "se o segredo for rotacionado (claim `gen`). `dias` vai de "
+                    "1 a 365.",
+        tags=["credenciais"],
+    )
+    async def token_mcp(request: Request, chave: str, dias: int = 90):
+        # Emitido AQUI, e não na API pública, pela mesma razão que o manager
+        # existe separado: um token de meses é coisa que só o operador cunha.
+        if not cfg.mcp_uri:
+            raise HTTPException(
+                400, "MCP desligado: API_MCP_URI não está configurada neste processo"
+            )
+        if not 1 <= dias <= 365:
+            raise HTTPException(400, "dias deve estar entre 1 e 365")
+        cred = _cred(request, chave)
+        if not cred.ativa:
+            raise HTTPException(400, f"credencial {cred.status}: não emito token para ela")
+
+        agora = int(time.time())
+        token, validade = mod_token.emitir(
+            chave, cfg.jwt_segredo, validade_s=dias * 86400, escopo="mcp",
+            agora=agora, audiencia=cfg.mcp_uri,
+            geracao=request.app.state.credenciais.geracao(chave),
+        )
+
+        def _iso(t: int) -> str:
+            return datetime.fromtimestamp(t, timezone.utc).isoformat()
+
+        return {
+            "consumerKey": chave,
+            "token": token,
+            "audiencia": cfg.mcp_uri,
+            "emissao": _iso(agora),
+            "expiraEm": _iso(agora + validade),
+            "aviso": "guarde o token: ele não é armazenado. Rotacionar o segredo "
+                     "ou revogar a credencial o invalida.",
+        }
 
     @app.delete(
         "/manager/credenciais/{chave}",

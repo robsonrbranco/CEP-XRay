@@ -300,6 +300,19 @@ class SegredoRotacionado(BaseModel):
     aviso: str
 
 
+class TokenMCP(BaseModel):
+    consumerKey: str
+    token: str = Field(
+        description="Bearer para `Authorization` no cliente MCP. Vale SÓ no "
+                    "endpoint MCP (claim `aud`); as rotas REST o recusam. Não é "
+                    "guardado — perdeu, emite outro.",
+    )
+    audiencia: str = Field(examples=["https://hestia.ecomciencia.com/mcp"])
+    emissao: str
+    expiraEm: str
+    aviso: str
+
+
 class ListaCredenciais(BaseModel):
     credenciais: list[Credencial] = Field(default_factory=list)
 

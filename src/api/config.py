@@ -62,6 +62,12 @@ class ConfigAPI:
     # `publica.criar_app` recusa `None` quando vai abrir o Firebird de verdade,
     # em vez de deixar o erro aparecer na primeira requisição.
     firebird: FirebirdConfig | None = None
+    # URI canônica do endpoint MCP, ex.: `https://hestia.ecomciencia.com/mcp`.
+    # É a AUDIÊNCIA dos tokens do MCP (claim `aud`): quem valida e quem emite
+    # precisam concordar com ela byte a byte, então ela vem de um lugar só — o
+    # `ENV` do Dockerfile. Vazio desliga o MCP: a rota não é montada e o
+    # /manager recusa emitir token, em vez de emitir um sem audiência.
+    mcp_uri: str = ""
 
     @classmethod
     def do_ambiente(cls) -> "ConfigAPI":
@@ -97,4 +103,5 @@ class ConfigAPI:
             retencao_dias=int(_env("API_RETENCAO_DIAS", "0")),
             site_dir=_env("API_SITE_DIR", ""),
             firebird=fb,
+            mcp_uri=_env("API_MCP_URI", "").rstrip("/"),
         )
