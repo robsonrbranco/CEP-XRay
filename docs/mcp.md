@@ -140,6 +140,13 @@ voltou sozinho ao `initialize` e negociou **2025-11-25**. Listou as três
 ferramentas, chamou com e sem erro, leu o recurso e fez `ping`. O log de
 cobrança saiu com 200 faturável, 400 não faturável e `ni: null`.
 
+E em produção, no mesmo dia, contra o **cliente do OpenClaw 2026.9.5** do
+Cerbero, pelo endereço interno do cluster: `openclaw mcp add` sondou e salvou,
+`openclaw mcp probe` viu as três ferramentas e os recursos, e um turno real do
+agente consultou `24210-510` e respondeu com logradouro, bairro, município,
+tipo e competência. O log do pod registrou uma linha `mcp:consultar_cep`, 200,
+faturável, com a credencial do agente — e o CEP em nenhum arquivo.
+
 ## Em aberto
 
 - **A revisão 2026-07-28** ("era moderna", envelope sem estado por
