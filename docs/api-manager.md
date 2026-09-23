@@ -113,6 +113,7 @@ Todas sob `/manager`, na porta **8001**.
 | `GET` | `/manager/credenciais/{chave}` | consulta, com o consumo do mês |
 | `PATCH` | `/manager/credenciais/{chave}` | altera nome, documento, e-mail, quota, observação ou status |
 | `POST` | `/manager/credenciais/{chave}/rotacionar` | novo segredo, mesma chave |
+| `POST` | `/manager/credenciais/{chave}/token-mcp` | token de longa duração para o `/mcp`; `?dias=` de 1 a 365, padrão 90 — ver `docs/mcp.md` |
 | `DELETE` | `/manager/credenciais/{chave}` | revoga (não apaga) |
 | `GET` | `/manager/estatisticas` | resumo geral; aceita `?competencia=AAAA-MM` |
 | `GET` | `/manager/estatisticas/{chave}` | por credencial, com `percentualDaQuota` |
@@ -143,6 +144,12 @@ Quatro decisões que valem estar escritas:
 **O segredo aparece uma única vez.** Só o hash é guardado. Não há rota que o
 devolva, e não há como recuperá-lo — apenas rotacionar. Há teste que varre o
 arquivo `.db` em busca do segredo em claro.
+
+**O token do MCP é emitido aqui, e só aqui.** Ele vive meses, e um token
+de meses é coisa que só o operador cunha — a API pública emite apenas o
+token de uma hora do contrato dos Correios. Ele cai na hora se a
+credencial for revogada ou suspensa, e cai também se o segredo for
+rotacionado. Detalhes em `docs/mcp.md`.
 
 **Rotacionar mantém a chave.** Trocar o segredo não obriga o cliente a mudar a
 identidade dele em nenhum outro sistema — e o histórico de uso continua ligado

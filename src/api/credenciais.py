@@ -217,6 +217,28 @@ class Credenciais:
             raise CredencialNaoEncontrada(consumer_key)
         return self._para_objeto(linha)
 
+    def geracao(self, consumer_key: str) -> str:
+        """Impressão da geração ATUAL do segredo — muda a cada `rotacionar()`.
+
+        Vai dentro do token do MCP (claim `gen`), e é o que faz a rotação do
+        segredo derrubar os tokens de longa duração já emitidos. O token da API
+        REST vive uma hora e dispensa isso; o do MCP vive até 365 dias, e sem
+        esta amarra rotacionar o segredo deixaria meses de token valendo.
+
+        Deriva do `secret_salt` porque ele já é trocado a cada rotação — não há
+        coluna nova, e portanto não há migração da tabela em produção. É um
+        hash do salt, não o salt: ele não é segredo, mas não há por que
+        publicá-lo num token que circula fora do cluster.
+        """
+        with self._conectar() as con:
+            linha = con.execute(
+                "SELECT secret_salt FROM credencial WHERE consumer_key = ?",
+                (consumer_key,),
+            ).fetchone()
+        if linha is None:
+            raise CredencialNaoEncontrada(consumer_key)
+        return hashlib.sha256(linha["secret_salt"].encode()).hexdigest()[:16]
+
     def listar(self, status: str | None = None) -> list[Credencial]:
         sql = "SELECT * FROM credencial"
         args: tuple = ()

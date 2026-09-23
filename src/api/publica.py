@@ -11,6 +11,10 @@
     GET  /cep/v1/localidades/caixas-postais         501
     GET  /cep/v1/localidades/agencias-modulares     501
 
+    POST /mcp                                       camada para agentes (MCP),
+                                                    com token próprio — ver
+                                                    `api/mcp.py`
+
 O prefixo é `/cep/` porque é o caminho que o cliente escreve
 (`https://api.correios.com.br/cep/v2/enderecos/...`). `/token/v1/autentica`
 fica fora dele, como nos Correios, e `/saude` fica fora dos dois.
@@ -60,6 +64,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import cep as mod_cep
 from . import correios, esquemas
+from . import mcp as mod_mcp
 from . import token as mod_token
 from .conexao import ConexaoViva
 from .config import ConfigAPI
@@ -328,6 +333,12 @@ def criar_app(cfg: ConfigAPI, consultas=None) -> FastAPI:
             claims = mod_token.verificar(bruto, cfg.jwt_segredo)
         except mod_token.TokenInvalido as e:
             raise ErroAPI(401) from e
+
+        # Token com `aud` é do MCP (ver `api/mcp.py`): vive até 365 dias e foi
+        # emitido para agentes, não para o contrato dos Correios. Aceitá-lo
+        # aqui daria a um token de meses o alcance das rotas REST.
+        if "aud" in claims:
+            raise ErroAPI(401)
 
         chave = claims.get("sub", "")
         try:
@@ -647,6 +658,14 @@ def criar_app(cfg: ConfigAPI, consultas=None) -> FastAPI:
             request.app.state.consultas.atualizacao,
             chave, "/cep/v1/atualizacao", request,
         )
+
+    # -- MCP ------------------------------------------------------------
+    #
+    # A camada para agentes, em `/mcp`. Fica fora do OpenAPI: o OpenAPI
+    # documenta o contrato dos Correios, e o MCP é contrato nosso. Não é
+    # montada sem `cfg.mcp_uri`. Registrada antes do site pela mesma razão
+    # das rotas acima.
+    mod_mcp.registrar(app, cfg)
 
     # -- site -----------------------------------------------------------
     #

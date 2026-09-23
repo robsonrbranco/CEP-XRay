@@ -55,6 +55,7 @@ contra carregar o mesmo arquivo duas vezes).
 | `src/consulta/cep.py` | ficha de CEP, com o fallback por faixa |
 | `src/api/correios.py` | tradução para o contrato dos Correios |
 | `src/api/publica.py` | as rotas, os 501, o OpenAPI |
+| `src/api/mcp.py` | a camada MCP para agentes (`POST /mcp`), com token de audiência própria — ver `docs/mcp.md` |
 | `src/validation/qualidade.py` | relatório, nunca aborto |
 
 ## Comandos

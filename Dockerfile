@@ -171,6 +171,12 @@ ENV API_CREDENCIAIS_DIR=/creds \
     DB_CHARSET=WIN1252 \
     DB_COLLATION=WIN_PTBR
 
+# A URI canônica do endpoint MCP, que é também a AUDIÊNCIA dos tokens dele.
+# Aqui e não no manifest: os dois containers do pod (API e /manager) precisam
+# concordar com ela byte a byte — um emite, o outro valida —, e a mesma imagem
+# garante isso sem duas cópias para divergir. Ver src/api/mcp.py.
+ENV API_MCP_URI=https://hestia.ecomciencia.com/mcp
+
 # FB_EMBEDDED muda a forma do DSN. Sem ele o caminho sairia como
 # `inet://localhost:3050/...`, o Dispatcher tentaria o provider Remote e
 # falharia com "unavailable database" — erro que não menciona o caminho e manda

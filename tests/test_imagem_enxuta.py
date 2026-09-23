@@ -32,7 +32,7 @@ SUPERFICIE_DO_POD = """
 import sys
 from src.api.publica import criar_app
 from src.api.manager import criar_app as criar_manager
-from src.api import cep, correios, esquemas, token, uso, credenciais, conexao, config
+from src.api import cep, correios, esquemas, token, uso, credenciais, conexao, config, mcp
 from src.consulta import cep as consulta_cep, listagem
 from src.db import manage, schema, connection
 print(",".join(sorted({m.split(".")[0] for m in sys.modules})))
